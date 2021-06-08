@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block container %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-2">
+      Images to end: <span class="badge bg-primary">{{ images_left }}</span>
+      <div class="row">
+        <form action="upload_images/" method="post" enctype="multipart/form-data">
+          <div class="col-auto">
+            {% csrf_token %}
+            <input type="file" name="myfile" multiple>
+            <input type="submit" class="btn btn-outline-secondary mt-1" value="Upload">
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="col-8">
+      <div class="row">
+        {% if url != 0 %}
+        <img id="img" src="{{ url }}" alt="Girl in a jacket">
+        {% else %}
+        <div class="alert alert-success" role="alert">
+          Congratulations! there are no images left to classify. Upload more to continue.
+        </div>
+        {% endif %} 
+      </div>
+    </div>
+    <div class="col-2">
+      <h4 class="mt-2">Create label</h4>
+      <form action="create_label/" method="post">
+      {% csrf_token %}
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" id="myInput" onkeyup="searchLabel()" name="label" placeholder="Type a new label" autocomplete="off">
+          <input id="url" name="url" type="hidden" value="{{ url }}">
+          <input type="submit" class="btn btn-outline-secondary" value="Create">
+        </div>
+      </form>
+      <h4 class="mt-2">Existing labels</h4>
+      <p class="mt-2">Recent labels</p>
+      <hr>
+      <div id="myUL">
+        {% for label in labels %}
+        {% if label.label is not None %}
+        <button type="button" class="btn btn-primary btn-sm mt-1" onclick="postLabel('{{url}}','{{label.label}}')"><a>{{ label.label }}</a> <span class="badge bg-secondary rounded-pill">{{ label.total }}</span></button>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function searchLabel() {
+  var input, filter, ul, li, a, i, txtValue;
+  input = document.getElementById("myInput");
+  filter = input.value.toUpperCase();
+  ul = document.getElementById("myUL");
+  li = ul.getElementsByTagName("button");
+  for (i = 0; i < li.length; i++) {
+    a = li[i].getElementsByTagName("a")[0];
+    txtValue = a.textContent || a.innerText;
+    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+      li[i].style.display = "";
+    } else {
+      li[i].style.display = "none";
+    }
+  }
+}
+
+function postLabel(url_data, label_data) {
+  var data = {url:url_data, label:label_data};
+  $.post("create_label/", data);
+  document.location.href = "{% url 'reload_form' %}";
+}
+
+//var img_width = {{ images.1 }}
+//var img_height = {{ images.2 }}
+
+console.log(document.getElementById("img").offsetWidth);
+//console.log(img_width);
+//console.log(img_height);
+</script>
+{% endblock %}
