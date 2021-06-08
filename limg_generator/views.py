@@ -7,7 +7,7 @@ def main(request):
   apps = ['Classification', 'Detection', 'Segmentation']
   
   return render(
-        request,
-        'main.html',
-        context={'apps': apps},
-    )
+    request,
+    'main.html',
+    context={'apps': apps},
+  )

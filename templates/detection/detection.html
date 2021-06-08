@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block container %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-2">
+      Images to end: <span class="badge bg-primary">{{ images_left }}</span>
+      <div class="row">
+        <form action="upload_images/" method="post" enctype="multipart/form-data">
+          <div class="col-auto">
+            {% csrf_token %}
+            <input type="file" name="myfile" multiple>
+            <input type="submit" class="btn btn-outline-secondary mt-1" value="Upload">
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="col-8">
+      <div class="row">
+        {% if url != 0 %}
+        <!-- <img id="img" src="{{ url }}" alt="Girl in a jacket"> -->
+        <!-- <img width="750" height="750" src="{{ url }}" id="screenshot" draggable="false"> -->
+        <img src="{{ url }}" id="screenshot" draggable="false">
+        <svg viewBox="0 0 750 750" id="draw" xmlns="http://www.w3.org/2000/svg">
+          <rect id="marquee" x="0" y="0" width="0" height="0" />
+          <g id="boxes"></g>
+        </svg>
+        {% else %}
+        <div class="alert alert-success" role="alert">
+          Congratulations! there are no images left to classify. Upload more to continue.
+        </div>
+        {% endif %} 
+      </div>
+      <div class="row">
+        <div id="delButton" class="btn-group mt-1" role="group" aria-label="Basic example">
+          <button type="button" class="btn btn-success" onclick="postCoords('{{url}}','hola')">Save (Ctrl+G)</button>
+          <button type="button" class="btn btn-danger" onclick="delLastRect()">Delete (Ctrl+D)</button>
+          <button type="button" class="btn btn-primary" onclick="nextImage('{{url}}')">{{ img_width }} {{ img_height }} Next Image</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-2">
+      <h4 class="mt-2">Create label</h4>
+      <form action="create_detection_label/" method="post">
+      {% csrf_token %}
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" id="myInput" onkeyup="searchLabel()" name="label" placeholder="Type a new label" autocomplete="off">
+          <!-- <input id="url" name="url" type="hidden" value="{{ url }}"> -->
+          <input type="submit" class="btn btn-outline-secondary" value="Create">
+        </div>
+      </form>
+      <h4 class="mt-2">Existing labels</h4>
+      <p class="mt-2">Recent labels</p>
+      <hr>
+      <div id="myUL">
+        {% for label in labels %}
+        {% if label.name is not None %}
+        <!-- <button type="button" class="btn btn-primary btn-sm mt-1" onclick="postLabel('{{url}}','{{label.name}}')"><a>{{ label.name }}</a> <span class="badge bg-secondary rounded-pill">{{ label.total }}</span></button> -->
+        <button type="button" style="background: {{label.color}}" class="btn btn-sm mt-1" onclick="getLabel('{{label.color}}','{{label.name}}')"><a>{{ label.name }}</a> <span class="badge bg-secondary rounded-pill">{{ label.total }}</span></button>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+var lastLabel='test';
+function searchLabel() {
+  var input, filter, ul, li, a, i, txtValue;
+  input = document.getElementById("myInput");
+  filter = input.value.toUpperCase();
+  ul = document.getElementById("myUL");
+  li = ul.getElementsByTagName("button");
+  for (i = 0; i < li.length; i++) {
+    a = li[i].getElementsByTagName("a")[0];
+    txtValue = a.textContent || a.innerText;
+    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+      li[i].style.display = "";
+    } else {
+      li[i].style.display = "none";
+    }
+  }
+}
+
+function hexToRgb(hex) {
+  var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+function getLabel(color, name) {
+  //rgb_color=hexToRgb(color);
+  rgb_color=color;
+  var r = document.querySelector('#draw #boxes');
+  r.style.setProperty('fill', rgb_color);
+  lastLabel=name;
+}
+
+//EMPIEZA EL DIBUJADO
+var og_width = {{ img_width }}
+var og_height = {{ img_height }}
+console.log(og_width, og_height);
+
+var render_img = document.getElementById('screenshot'); 
+var render_width = render_img.width;
+console.log(render_width);
+
+var render_height = og_height*render_width/og_width
+console.log(render_height);
+
+//document.getElementById("screenshot").style.width = render_width+"px";
+//document.getElementById("screenshot").style.height = render_height+"px";
+document.getElementById("draw").style.width = render_width+"px";
+document.getElementById("draw").style.height = render_height+"px";
+shape = document.getElementById("draw");
+console.log(shape);
+shape.setAttribute("viewBox", "0 -0 "+render_width+" "+render_height); 
+//document.getElementsByTagName("svg")[0];.setAttribute("viewBox", "0 -0 "+render_width+" "+render_height");
+
+var r = document.querySelector(':root');
+r.style.setProperty('--mtop', '-'+render_height+'px');
+
+const $ = document.querySelector.bind(document);
+
+/**
+ * Collection of rectangles defining user generated regions
+ */
+const rectangles = [];
+
+// DOM elements
+const $screenshot = $('#screenshot');
+const $draw = $('#draw');
+const $marquee = $('#marquee');
+const $boxes = $('#boxes');
+
+// Temp variables
+let startX = 0;
+let startY = 0;
+const marqueeRect = {
+	x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+};
+
+$marquee.classList.add('hide');
+$screenshot.addEventListener('pointerdown', startDrag);
+
+function startDrag(ev) {
+	// middle button delete rect
+	if (ev.button === 1) {
+    const rect = hitTest(ev.layerX, ev.layerY);
+    if (rect) {
+      rectangles.splice(rectangles.indexOf(rect), 1);
+      redraw();
+    }
+    return;
+  }
+	window.addEventListener('pointerup', stopDrag);
+  $screenshot.addEventListener('pointermove', moveDrag);
+  $marquee.classList.remove('hide');
+  startX = ev.layerX;
+  startY = ev.layerY;
+  drawRect($marquee, startX, startY, 0, 0);
+}
+
+function stopDrag(ev) {
+  $marquee.classList.add('hide');
+	window.removeEventListener('pointerup', stopDrag);
+  $screenshot.removeEventListener('pointermove', moveDrag);
+  if (ev.target === $screenshot && marqueeRect.width && marqueeRect.height) {
+    rectangles.push(Object.assign({}, marqueeRect));
+    redraw();
+  }
+}
+
+function moveDrag(ev) {
+	let x = ev.layerX;
+  let y = ev.layerY;
+	let width = startX - x;
+  let height = startY - y;
+  if (width < 0) {
+  	width *= -1;
+    x -= width;
+  }
+  if (height < 0) {
+  	height *= -1;
+    y -= height;
+  }
+  Object.assign(marqueeRect, { x, y, width, height });
+  drawRect($marquee, marqueeRect);
+}
+
+function hitTest(x, y) {
+	return rectangles.find(rect => (
+    x >= rect.x &&
+    y >= rect.y && 
+    x <= rect.x + rect.width &&
+    y <= rect.y + rect.height
+  ));
+}
+
+function redraw() {
+  console.log(rectangles);
+	boxes.innerHTML = '';
+  rectangles.forEach((data) => {
+    boxes.appendChild(drawRect(
+      document.createElementNS("http://www.w3.org/2000/svg", 'rect'), data
+    ));
+  });
+}
+
+function drawRect(rect, data) {
+	const { x, y, width, height } = data;
+	rect.setAttributeNS(null, 'width', width);
+  rect.setAttributeNS(null, 'height', height);
+  rect.setAttributeNS(null, 'x', x);
+  rect.setAttributeNS(null, 'y', y);
+  return rect;
+}
+
+function delLastRect() {
+  rectangles.pop();
+  redraw();
+}
+//ACABA EL DIBUJADO
+
+function postCoords(url_data, label_data) {
+  json_rectangles = JSON.stringify(rectangles);
+  console.log(lastLabel);
+  var data = {url:url_data, label:lastLabel, boundingboxes:json_rectangles};
+  jQuery.post("create_detection/", data);
+  document.location.href = "{% url 'reload_form_detection' %}";
+}
+
+function nextImage(url_data) {
+  var data = {url:url_data};
+  jQuery.post("next_image/", data);
+  document.location.href = "{% url 'reload_form_detection' %}";
+}
+</script>
+{% endblock %}
