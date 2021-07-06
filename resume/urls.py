@@ -22,4 +22,5 @@ from . import views
 
 urlpatterns = [
     re_path(r'^$', views.resume, name='resume'),
+    re_path(r'^download_data/$', views.downloadData, name='download_data'),
 ]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

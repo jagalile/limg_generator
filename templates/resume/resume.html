@@ -32,7 +32,7 @@
             <th>Label</th>
             <th>Total</th>
             <th>Reviwed</th>
-            <th></th>
+            <th>Download</th>
           </tr>
         </thead>
         <tbody>
@@ -41,8 +41,8 @@
           <tr>
             <td>{{ main_label.label }}</td>
             <td>{{ main_label.total }}</td>
-            <td>test</td>
-            <td><i class="fas fa-download"></i></td>
+            <td> - </td>
+            <td><button type="button" class="btn btn-light btn-sm" onclick="downloadData('{{main_label.label}}','class')"><i class="fas fa-download"></i></button></td>
           </tr>
           {% endif %}
           {% endfor %}
@@ -57,16 +57,17 @@
             <th>Label</th>
             <th>Total</th>
             <th>Reviwed</th>
-            <th></th>
+            <th>Download</th>
           </tr>
         </thead>
         <tbody>
-          {% for label in labels %}
-          {% if label.label is not None %}
+          {% for label in detection_labels %}
+          {% if label.0 is not None %}
           <tr>
-            <td>{{ label.label }}</td>
-            <td>{{ label.total }}</td>
-            <td><i class="fas fa-download"></i></td>
+            <td>{{ label.0 }}</td>
+            <td>{{ label.1 }}</td>
+            <td> - </td>
+            <td><button type="button" class="btn btn-light btn-sm" onclick="downloadData('{{label.0}}','detect')"><i class="fas fa-download"></i></button></td>
           </tr>
           {% endif %}
           {% endfor %}
@@ -99,4 +100,10 @@
     </div>
   </div>
 </div>
+<script>
+function downloadData(label, type) {
+  var data = {label:label, type:type};
+  jQuery.post("download_data/", data);
+}
+</script>
 {% endblock %}
